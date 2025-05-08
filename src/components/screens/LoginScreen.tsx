@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import CustomInput from '../common/CustomInput';
 import CustomButton from '../common/CustomButton';
@@ -10,94 +9,113 @@ interface LoginScreenProps {
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [nickname, setNickname] = useState('');
+  const [loginId, setLoginId] = useState('');      // login_id
+  const [password1, setPassword1] = useState('');  // password1 / login password
+  const [password2, setPassword2] = useState('');  // password2 / confirm
+  const [username, setUsername] = useState('');    // nickname
   const [error, setError] = useState('');
-
   const { login, signup, loading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    if (!loginId || !password1 || (!isLogin && (!password2 || !username))) {
+      setError('모든 필드를 입력해주세요.');
+      return;
+    }
+    if (!isLogin && password1 !== password2) {
+      setError('비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
     try {
       if (isLogin) {
-        await login(email, password);
+        await login(loginId, password1);
+        onLogin();
       } else {
-        await signup(email, password, nickname);
+        await signup(loginId, username, password1, password2);
+        alert('회원가입이 완료되었습니다.\n이제 로그인해주세요.');
+        setIsLogin(true);
       }
-      onLogin();
-    } catch (error) {
-      setError('로그인에 실패했습니다. 다시 시도해주세요.');
+    } catch (err: any) {
+      setError(isLogin ? '로그인에 실패했습니다.' : err.response?.data?.detail || '회원가입에 실패했습니다.');
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-white">
-      <h1 className="text-4xl font-bold mb-8 text-primary">뭐먹을냉?</h1>
-      
-      <div className="w-full max-w-md">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold mb-2">
-            {isLogin ? '로그인' : '회원가입'}
-          </h2>
-          <p className="text-gray-500">
-            {isLogin 
-              ? '앱을 사용하려면 로그인이 필요합니다.' 
-              : '새 계정을 만들어보세요.'}
-          </p>
-        </div>
-        
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div className="max-w-md w-full bg-white p-6 rounded shadow">
+        <h1 className="text-3xl font-bold mb-4 text-center">뭐먹을냉?</h1>
+        <h2 className="text-2xl font-semibold mb-2">
+          {isLogin ? '로그인' : '회원가입'}
+        </h2>
+        {error && <p className="text-red-500 mb-4">{error}</p>}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <CustomInput
-            label="이메일"
-            type="email"
-            placeholder="email@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            label="아이디"
+            type="text"
+            value={loginId}
+            onChange={(e) => setLoginId(e.target.value)}
+            placeholder="아이디를 입력하세요"
             required
           />
-          
+
           <CustomInput
             label="비밀번호"
             type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={password1}
+            onChange={(e) => setPassword1(e.target.value)}
+            placeholder="비밀번호를 입력하세요"
             required
           />
-          
+
           {!isLogin && (
-            <CustomInput
-              label="닉네임"
-              type="text"
-              placeholder="사용할 닉네임을 입력하세요"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              required
-            />
+            <>
+              <CustomInput
+                label="비밀번호 확인"
+                type="password"
+                value={password2}
+                onChange={(e) => setPassword2(e.target.value)}
+                placeholder="비밀번호를 다시 한 번 입력하세요"
+                required
+              />
+              <CustomInput
+                label="닉네임"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="사용할 닉네임을 입력하세요"
+                required
+              />
+            </>
           )}
-          
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          
-          <CustomButton
-            type="submit"
-            fullWidth
-            disabled={loading}
-          >
-            {loading ? '처리 중...' : isLogin ? '로그인' : '회원가입'}
+
+          <CustomButton type="submit" fullWidth disabled={loading}>
+            {loading
+              ? isLogin
+                ? '로그인 중…'
+                : '가입 중…'
+              : isLogin
+              ? '로그인'
+              : '회원가입'}
           </CustomButton>
         </form>
-        
-        <div className="mt-6 text-center">
+
+        <p className="mt-4 text-center">
           <button
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              setError('');
+              setIsLogin(!isLogin);
+            }}
             className="text-primary hover:underline"
           >
-            {isLogin ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
+            {isLogin
+              ? '계정이 없으신가요? 회원가입'
+              : '이미 계정이 있으신가요? 로그인'}
           </button>
-        </div>
+        </p>
       </div>
     </div>
   );
