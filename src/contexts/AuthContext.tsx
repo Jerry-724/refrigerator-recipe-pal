@@ -1,121 +1,84 @@
-
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { User } from '../types';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from 'react';
+import api, { signup as apiSignup, login as apiLogin } from '@/api/api';
 
 interface AuthContextType {
-  user: User | null;
+  user: { login_id: string } | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, nickname: string) => Promise<void>;
+  signup: (
+    login_id: string,
+    username: string,
+    password1: string,
+    password2: string
+  ) => Promise<void>;
+  login: (login_id: string, password: string) => Promise<void>;
   logout: () => void;
-  updateNickname: (nickname: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
-  deleteAccount: (password: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: false,
+  signup: async () => {},
+  login: async () => {},
+  logout: () => {},
+});
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<{ login_id: string } | null>(null);
+  const [loading, setLoading] = useState(false);
 
+  // 앱 시작 시 저장된 토큰이 있으면 axios 헤더에 세팅
   useEffect(() => {
-    // Check for saved user in localStorage
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    const token = localStorage.getItem('token');
+    if (token) {
+      api.defaults.headers.Authorization = `Bearer ${token}`;
+      // (옵션) 여기서 /user/me 같은 엔드포인트로 유저 정보를 가져올 수도 있습니다.
     }
-    setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    // Mock login functionality
+  const signup = async (
+    login_id: string,
+    username: string,
+    password1: string,
+    password2: string
+  ) => {
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Simulate authentication
-    const mockUser: User = {
-      id: '1',
-      nickname: '사용자',
-      email: email
-    };
-    
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    setUser(mockUser);
-    setLoading(false);
+    try {
+      await apiSignup({ login_id, username, password1, password2 });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const signup = async (email: string, password: string, nickname: string) => {
-    // Mock signup functionality
+  const login = async (login_id: string, password: string) => {
     setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Simulate registration
-    const mockUser: User = {
-      id: '1',
-      nickname: nickname,
-      email: email
-    };
-    
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    setUser(mockUser);
-    setLoading(false);
+    try {
+      const res = await apiLogin(login_id, password);
+      const token = res.data.access_token;
+      localStorage.setItem('token', token);
+      api.defaults.headers.Authorization = `Bearer ${token}`;
+      setUser({ login_id });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
-    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    delete api.defaults.headers.Authorization;
     setUser(null);
-  };
-
-  const updateNickname = async (nickname: string) => {
-    if (!user) return;
-    
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const updatedUser = { ...user, nickname };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    setUser(updatedUser);
-    setLoading(false);
-  };
-
-  const updatePassword = async (password: string) => {
-    if (!user) return;
-    
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    // In a real app, would call an API to update password
-    setLoading(false);
-  };
-
-  const deleteAccount = async (password: string) => {
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    localStorage.removeItem('user');
-    setUser(null);
-    setLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      login, 
-      signup, 
-      logout, 
-      updateNickname, 
-      updatePassword,
-      deleteAccount
-    }}>
+    <AuthContext.Provider value={{ user, loading, signup, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+export const useAuth = () => useContext(AuthContext);
